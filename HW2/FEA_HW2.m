@@ -6,8 +6,8 @@ clear all; close all; clc;
 %% Q8+9+10
 
 %Choose # of elements
-% ns = [1 5 10 50 100 500 1000];
-ns = [2];
+ns = [1 5 10 50 100 500 1000];
+% ns = [2];
 
 L = 2; E = 200E9; A = 15E-4; rho = 7850; w = 2*pi;
 hs = []; L2s = []; H1s = [];
