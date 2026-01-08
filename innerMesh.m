@@ -6,14 +6,14 @@ function [E,local_nodes] = innerMesh(k,type)
 %   linear triangles.
 % Ben Sarfati 1/2026
 
-%Initialize node coordinates and element lists
-[Vx,Vy] = ndgrid(linspace(-1,1,k+1),linspace(-1,1,k+1));
-local_nodes = [Vx(:) Vy(:)];
-E = zeros(2*k^2,3);
-
 %Check requested element type
 if strcmp(type,'biquadratic')
+    %Create node coordinates list
+    [Vx,Vy] = ndgrid(linspace(-1,1,k+1),linspace(-1,1,k+1));
+    local_nodes = [Vx(:) Vy(:)];
+
     %Create element list
+    E = zeros(2*k^2,3);
     for i = 1:k
         for j = 1:k
             E(k*(i-1)+j,:) = [(i-1)*(k+1)+j+1 i*(k+1)+j (i-1)*(k+1)+j];
@@ -21,7 +21,9 @@ if strcmp(type,'biquadratic')
         end
     end
 elseif strcmp(type,'quadratic triangular')
-    %Update local node coordinates list (only have nodes in bottom right)
+    %Create local node coordinates list (only have nodes in bottom right)
+    [Vx,Vy] = ndgrid(linspace(0,1,k+1),linspace(0,1,k+1));
+    local_nodes = [Vx(:) Vy(:)];
     local_nodes = local_nodes(logical(reshape(flipud(tril(ones(k+1))),[],1)),:);
     
     %Create element list

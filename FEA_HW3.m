@@ -48,11 +48,13 @@ E = {[1 9 7 5 8 4]... %Left triangle
 
 % testMacro = V(E{3},:);
 macro1 = V(E{1},:);
-[Enew1,N1] = meshElement(macro1,2);
 macro3 = V(E{3},:);
-[Enew1,N1] = meshElement(macro3,2);
-cFigure; axisGeom; gpatch(Enew,N)
-hold on; gpatch(Enew,N)
+[Enew1,N1] = meshElement(macro1,4);
+[Enew3,N3] = meshElement(macro3,4);
+cFigure; axisGeom; gpatch(Enew1,N1,'g')
+hold on; gpatch(Enew3,N3,'b')
+[Elements, Nodes] = mergeMesh(Enew1,N1,Enew3,N3); % combine mesh1 and mesh2  (mesh1+mesh2)
+cFigure; axisGeom; gpatch(Elements,Nodes,'r')
 % [Enew,N] = meshElement(testMacro,4);
 % [Enew,N] = meshElement(testMacro,8);
 % [Enew,N] = meshElement(testMacro,3);
