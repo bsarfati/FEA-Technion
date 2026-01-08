@@ -24,7 +24,7 @@ p = 7850;   %kg/m^3
 w = 2*pi;   %rad/sec  
 
 %Plot exact solution
-num = length(ns)
+num = length(ns);
 uExact = @(xVal) p*w^2*xVal.*(L^2-xVal.^2/3)/2/E;
 xExact = linspace(0,L,1e5)';
 figure(1);
