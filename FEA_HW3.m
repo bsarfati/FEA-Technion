@@ -5,7 +5,7 @@ clear; close all; clc
 %% Parameters 
 
 %mesh_refinement_factor
-mesh_refinement_factor = 7;
+mesh_refinement_factor = 3;
 
 %Plot settings 
 fontSize = 30;
