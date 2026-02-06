@@ -7,32 +7,19 @@ function [E,N] = meshElement(macro,mesh_refinement_factor)
 % Ben Sarfati 1/2026
 
 %Determine the type of element that requires meshing
-if size(macro,1) == 9
-    type = 'biquadratic';
+    switch size(macro,1)
+        case 9
+            type = 'biquadratic';
+        case 6
+            type = 'quadratic triangular';
+        case 3
+            type = 'linear triangular';
+        otherwise
+            error('element type not implemented');
+    end
 
-    %Define isoparametric mapping
-    phi = @(xi,eta) (1/4)*[
-    xi*(xi-1)*eta*(eta-1)
-    xi*(xi+1)*eta*(eta-1)
-    xi*(xi+1)*eta*(eta+1)
-    xi*(xi-1)*eta*(eta+1)
-    2*(1-xi^2)*eta*(eta-1)
-    2*xi*(xi+1)*(1-eta^2)
-    2*(1-xi^2)*eta*(eta+1)
-    2*xi*(xi-1)*(1-eta^2)
-    4*(1-xi^2)*(1-eta^2)]';
-else
-    type = 'quadratic triangular';
-
-    %Define isoparametric mapping
-    phi = @(xi,eta) [
-    xi*(2*xi-1)
-    eta*(2*eta-1)
-    (1-xi-eta)*(1-2*xi-2*eta)
-    4*xi*eta
-    4*eta*(1-xi-eta)
-    4*xi*(1-xi-eta)]';
-end
+%Retrieve basis functions
+phi = retrieveMapping(type);
 
 %Retrieve the mesh at the desired fineness in the reference configuration
 [E,local_nodes] = innerMesh(mesh_refinement_factor,type);

@@ -1,5 +1,5 @@
 function [phi,Bhat] = retrieveMapping(elementType)
-% innerMesh - meshes a reference element
+% retrieveMapping - retrieves basis functions and derivatives
 %   [phi,Bhat] = retrieveMapping(elementType)
 %   retrieves isoparametric mapping phi and its gradient Bhat with respect
 %   to reference coordinates for various element types
@@ -35,6 +35,7 @@ elseif strcmp(elementType,'linear triangular')
     eta
     1 - xi - eta]';
 
-    Bhat = [eye(2) -ones(2,1)]; %Functional for now; 
-    % may need to become a function handle in the future
+    Bhat = @(xi,eta) [eye(2) -ones(2,1)];
+    % % Bhat = [eye(2) -ones(2,1)]; %Functional for now (FOR INTEGRATEGEOM); 
+    % % % may need to become a function handle in the future
 end

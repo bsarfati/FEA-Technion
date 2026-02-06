@@ -4,6 +4,10 @@ clear; close all; clc
 
 %% Parameters
 
+%Choose geometry
+geometries = {'benchmark','project','simple'};
+geometry = geometries{1};
+
 %Mesh refinement factor
 mesh_refinement_factor = 3;
 
@@ -21,11 +25,11 @@ b = 5;
 
 %Create node coordinates for a uniform 3x3 grid centered at 0
 [Vx,Vy] = ndgrid(-1:1,-1:1);
-V2 = [Vx(:) Vy(:)];
+V1 = [Vx(:) Vy(:)];
 
 %Create all necessary node coords from the above node coords
-V2 = [3*V2; 5*V2([1 3 7 9],:); sqrt(R/2)*V2([1 2 3 4 6 7 8 9],:); R*V2([2 4 6 8],:)];
-E2 = {[1 9 7 5 8 4]... %Left triangle
+V1 = [3*V1; 5*V1([1 3 7 9],:); sqrt(R^2/2)*V1([1 2 3 4 6 7 8 9],:); R*V1([2 4 6 8],:)];
+E1 = {[1 9 7 5 8 4]... %Left triangle
  [9 1 3 5 2 6]... %Right triangle (correctly wound)
  [7 9 21 19 8 13 25 12 20]... %Top biquad
  [1 7 19 14 4 12 23 10 17]... %Left biquad
@@ -36,7 +40,7 @@ E2 = {[1 9 7 5 8 4]... %Left triangle
 EmeshedBM = cell(6,1);
 NmeshedBM = cell(6,1);
 for i = 1:6
-    [EmeshedBM{i},NmeshedBM{i}] = meshElement(V2(E2{i},:),mesh_refinement_factor);
+    [EmeshedBM{i},NmeshedBM{i}] = meshElement(V1(E1{i},:),mesh_refinement_factor);
 end
 
 %Merge meshes
