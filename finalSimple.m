@@ -7,42 +7,24 @@ clear; close all; clc
 %Mesh refinement factor
 mesh_refinement_factor = 10;
 
-%Benchmark problem parameters
+%Simple problem parameters
 R = 10; %Radius
 k0 = 12.1; %Stiffness
 p0 = 5; %Transverse pressure
 % % % % meshBoundarRes = 100; %Number of points on boundary of mesh
 
-%% Mesh benchmark problem (using HW3 geometry)
+%% Mesh simple problem (using HW3 geometry)
 
 % % % % thetaVals = linspace(0,2*pi,meshBoundaryRes)
 
-%Create node coordinates for a uniform 3x3 grid centered at 0
-[Vx,Vy] = ndgrid(-1:1,-1:1);
-Vraw = [Vx(:) Vy(:)];
+%Create node coordinates
+Vraw = [0 0; 0.5 0; 0.5 0.5];
 
 %Create all necessary node coords from the above node coords
-Vraw = [3*Vraw; 5*Vraw([1 3 7 9],:); sqrt(R^2/2)*Vraw([1 2 3 4 6 7 8 9],:); R*Vraw([2 4 6 8],:)];
-Eraw = {[1 9 7 5 8 4]... %Left triangle
- [9 1 3 5 2 6]... %Right triangle (correctly wound)
- [7 9 21 19 8 13 25 12 20]... %Top biquad
- [1 7 19 14 4 12 23 10 17]... %Left biquad
- [3 1 14 16 2 10 22 11 15]... %Bottom biquad
- [9 3 16 21 6 11 24 13 18]}; %Right biquad
+Eraw = [1 2 3];
 
 %Mesh elements
-Emeshed = cell(6,1);
-Nmeshed = cell(6,1);
-for i = 1:6
-    [Emeshed{i},Nmeshed{i}] = meshElement(Vraw(Eraw{i},:),mesh_refinement_factor);
-end
-
-%Merge meshes
-E = Emeshed{1};
-N = Nmeshed{1};
-for i = 2:6
-    [E,N] = mergeMesh(E,N,Emeshed{i},Nmeshed{i});
-end
+[E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor);
 
 %% Vis
 
