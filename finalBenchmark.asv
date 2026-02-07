@@ -79,8 +79,7 @@ for currentE = E'
     integrandKe = @(xi_e,eta_e) B(xi_e,eta_e)'*B(xi_e,eta_e)*detJe(xi_e,eta_e);
 
     %Calculate local stiffness matrix using degree 0 Gauss Quadrature
-    % Ke = gaussQuadrature(integrandKe,0); %will this break when bhat non-const?
-    Ke = gaussQuadrature(integrandKe,1); %will this break when bhat non-const?
+    Ke = gaussQuadrature(integrandKe,0); %will this break when bhat non-const?
 
     %Write local forcing function
     fe = p0*ones(length(currentE),1);
