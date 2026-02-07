@@ -5,7 +5,7 @@ clear; close all; clc
 %% Parameters
 
 %Mesh refinement factor
-mesh_refinement_factor = 16;
+mesh_refinement_factor = 10;
 
 %Benchmark problem parameters
 R = 10; %Radius
@@ -88,7 +88,7 @@ for currentE = E'
     %"Add" local matrices to global matrices
     M(currentE,currentE) = M(currentE,currentE)+Me;
     K(currentE,currentE) = K(currentE,currentE)+Ke;
-    F(currentE) = Me*fe;
+    F(currentE) = F(currentE)+Me*fe;
 end
 
 %Create global forcing vector (alternative)
@@ -114,21 +114,28 @@ a2 = (K+k0*M)\(F2); %Not actually sure if constants can go here KKKKKK
 wTheo = @(r) p0/k0*(1-besseli(0,sqrt(k0)*r)/besseli(0,sqrt(k0)*R));
 aTheo = wTheo(vecnorm(N,2,2)); 
 
+
+e1 = abs(aTheo-a)./aTheo;
+e2 = abs(aTheo-a2)./aTheo;
 close all;
 lims = max((aTheo-a)./aTheo);
 figure;
-plot((aTheo-a)./aTheo)
+plot(e1,'*')
+xline(boundaryNodes)
 title('with local forcing vector')
 % ylim([-lims lims])
 figure;
-plot((aTheo-a2)./aTheo)
+plot(e2,'*')
+xline(boundaryNodes)
 title('with direct global forcing vector of 1s')
 % ylim([-lims lims])
 figure;
-plot((a-a2)./a)
+plot((a-a2)./a,'*')
+xline(boundaryNodes)
 title('diff between')
 figure;
-plot((M*f-F)./F)
+plot((M*f-F)./F,'*')
+xline(boundaryNodes)
 title('diff between the terms themselves')
 
 %% Functions 
