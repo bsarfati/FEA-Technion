@@ -4,7 +4,7 @@ function [E,local_nodes] = innerMesh(k,type)
 %   Returns an element list E and node coordinates list local_nodes of a 
 %   reference element after subdivision k times on each axis into 2*(k)^2
 %   linear triangles.
-% Ben Sarfati 1/2026
+% Ben Sarfati 2/2026
 
 %Check requested element type
 if strcmp(type,'biquadratic')
@@ -21,7 +21,7 @@ if strcmp(type,'biquadratic')
         end
     end
 elseif strcmp(type,'quadratic triangular')
-    %Create local node coordinates list (only have nodes in bottom right)
+    %Create local node coordinates list (only have nodes in bottom left)
     [Vx,Vy] = ndgrid(linspace(0,1,k+1),linspace(0,1,k+1));
     local_nodes = [Vx(:) Vy(:)];
     local_nodes = local_nodes(logical(reshape(flipud(tril(ones(k+1))),[],1)),:);

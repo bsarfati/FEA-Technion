@@ -3,7 +3,7 @@ function [phi,Bhat] = retrieveMapping(elementType)
 %   [phi,Bhat] = retrieveMapping(elementType)
 %   retrieves isoparametric mapping phi and its gradient Bhat with respect
 %   to reference coordinates for various element types
-% Ben Sarfati 1/2026
+% Ben Sarfati 2/2026
 
 %Determine the type of element that requires meshing
 if strcmp(elementType,'biquadratic')

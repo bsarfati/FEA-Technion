@@ -4,7 +4,7 @@ function [E,N] = meshElement(macro,mesh_refinement_factor)
 %   Meshes an element with the node coordinates list given by macro into 
 %   linear triangular elements, subdividing into mesh_refinement_factor for
 %   each side
-% Ben Sarfati 1/2026
+% Ben Sarfati 2/2026
 
 %Determine the type of element that requires meshing
     switch size(macro,1)
@@ -12,8 +12,6 @@ function [E,N] = meshElement(macro,mesh_refinement_factor)
             type = 'biquadratic';
         case 6
             type = 'quadratic triangular';
-        case 3
-            type = 'linear triangular';
         otherwise
             error('element type not implemented');
     end

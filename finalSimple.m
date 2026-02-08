@@ -7,21 +7,13 @@ clear; close all; clc
 %Mesh refinement factor
 mesh_refinement_factor = 10;
 
-%Simple problem parameters
-R = 10; %Radius
-k0 = 12.1; %Stiffness
-p0 = 5; %Transverse pressure
-% % % % meshBoundarRes = 100; %Number of points on boundary of mesh
-
-%% Mesh simple problem (using HW3 geometry)
-
-% % % % thetaVals = linspace(0,2*pi,meshBoundaryRes)
+%% Mesh simple problem
 
 %Create node coordinates
-Vraw = [0 0; 0.5 0; 0.5 0.5];
+Vraw = [0 0; 0.5 0; 0.5 0.5; 0.25 0; 0.5 0.25; 0.25 0.25];
 
 %Create all necessary node coords from the above node coords
-Eraw = [1 2 3];
+Eraw = 1:6;
 
 %Mesh elements
 [E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor);
