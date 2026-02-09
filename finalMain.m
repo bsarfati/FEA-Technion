@@ -6,14 +6,14 @@ clear; close all; clc
 
 %Choice of simulation
 problems = {'benchmark','simple','project'}; %Available options
-indProblem = 2 ;
+indProblem = 3;
 
 %Choice of element type
 elementTypes = {'linear triangular','quadratic triangular'}; %Available options
 indElementType = 1;
 
 %Mesh refinement factor (applied to each macro element)
-mesh_refinement_factor = 10;
+mesh_refinement_factor = 2;
 
 %Conversion from BC label to BC type (1=homog. Dirichlet, 2=homog. Neumann,
 %3,4=prescribed transverse deflection from geometry 1, as below)
@@ -44,10 +44,15 @@ switch problem
         a = 3;
         b = 12;
         p0 = 5;
-        wBarL = @(y) c*(-y^2+(a/2)^2);
+        c = 1;
+        wBarL = @(y) c*(-y.^2+(a/2)^2);
+        wBarR = @(y) 0.2*c*(-y.^2+(a/2)^2);
 end
 
 %% Pre-processor
+
+%Select element type 
+elementType = elementTypes{indElementType};
 
 %Create mesh, assign material properties, and assign loading conditions
 switch problem
@@ -75,7 +80,7 @@ switch problem
         Emeshed = cell(6,1);
         Nmeshed = cell(6,1);
         for i = 1:6
-            [Emeshed{i},Nmeshed{i}] = meshElement(Vraw(Eraw{i},:),mesh_refinement_factor);
+            [Emeshed{i},Nmeshed{i}] = meshElement(Vraw(Eraw{i},:),mesh_refinement_factor,elementType);
         end
         
         %Merge meshes
@@ -97,10 +102,10 @@ switch problem
         Eraw = 1:6;
         
         %Mesh elements
-        [E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor);    
+        [E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor,elementType);    
     case 'project'
         %Assing forcing function
-        p = @(x,y) p0;
+        p = @(x,y) p0*ones(size(x));
 
         %Assign material properties
         k = @(x,y) kMax*sin(pi*x/b).*cos(pi*y/a);
@@ -110,7 +115,7 @@ switch problem
         Eraw = 1:9;
 
         %Mesh elements
-        [E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor);
+        [E,N] = meshElement(Vraw(Eraw,:),mesh_refinement_factor,elementType);
 end
 
 %Retrieve ordered boundary nodes
@@ -124,7 +129,9 @@ switch problem
         %Boundary BC is homogeneous
         numBoundaryLabels = 1;
         boundaryLabels = ones(numBoundaryNodes,1);
-        zeroBoundaryNodes = boundaryNodes(boundaryLabels==1);
+        type1BoundaryNodes = boundaryNodes(boundaryLabels==1);
+        type3BoundaryNodes = [];
+        type4BoundaryNodes = [];
     case 'simple'   
         numBoundaryLabels = 2;
 
@@ -153,7 +160,9 @@ switch problem
             boundaryLabels(indCorners(1):end) = 1;
             boundaryLabels(1:indCorners(2)) = 1;
         end
-        zeroBoundaryNodes = boundaryNodes(boundaryLabels==1);
+        type1BoundaryNodes = boundaryNodes(boundaryLabels==1);
+        type3BoundaryNodes = [];
+        type4BoundaryNodes = [];
     case 'project'
         numBoundaryLabels = 4;
 
@@ -199,9 +208,9 @@ switch problem
         %Left gets wBarL (secondary prio. at corners)
         boundaryLabels(boundaryLabels==0) = 3;
 
-        zeroBoundaryNodes = boundaryNodes(boundaryLabels==1);
-        leftBoundaryNodes = boundaryNodes(boundaryLabels==3);
-        rightBoundaryNodes = boundaryNodes(boundaryLabels==4);
+        type1BoundaryNodes = boundaryNodes(boundaryLabels==1);
+        type3BoundaryNodes = boundaryNodes(boundaryLabels==3);
+        type4BoundaryNodes = boundaryNodes(boundaryLabels==4);
 end
 
 %% Visualize mesh
@@ -229,10 +238,11 @@ set(gca,'fontSize',fontSize)
 %% Processor
 
 %Retrieve basis functions, gradients, jacobians according to element type
-[phi,Bhat] = retrieveMapping(elementTypes{indElementType});
+[phi,Bhat] = retrieveMapping(elementType);
 
 %Add contribution of each element to global matrices
 M = zeros(size(N,1));
+Kk = M;
 K = M;
 F = zeros(size(N,1),1);
 for currentE = E'
@@ -256,31 +266,46 @@ for currentE = E'
     %Write local forcing function
     pe = p(N(currentE,1),N(currentE,2));
 
-    %Write local stiffness function
-    % ke = k(N(currentE,1),N(currentE,2));
+    %Write mapping to global coords from this element's coords
+    x = @(xi_e,eta_e) phi(xi_e,eta_e)*N(currentE,1);
+    y = @(xi_e,eta_e) phi(xi_e,eta_e)*N(currentE,2);
+
+    %Write integrand for local massy stiffnessy kappa matrix
+    integrandKke = @(xi_e,eta_e) integrandMe(xi_e,eta_e)*k(x(xi_e,eta_e),y(xi_e,eta_e));
+
+    %Calculate local massy stiffnessy kappa matrix using degree 3 (?) Gauss Quadrature
+    Kke = gaussQuadratureTri(integrandKke,3);
 
     %"Add" local matrices to global matrices
+    Kk(currentE,currentE) = Kk(currentE,currentE)+Kke;
     M(currentE,currentE) = M(currentE,currentE)+Me;
     K(currentE,currentE) = K(currentE,currentE)+Ke;
     F(currentE) = F(currentE)+Me*pe;
 end
 
-%Correct global matrices by adding boundary conditions
-K(zeroBoundaryNodes,:) = 0;
-K(:,zeroBoundaryNodes) = 0; %Optional; results from homog. BC
-K(zeroBoundaryNodes,zeroBoundaryNodes) = eye(length(zeroBoundaryNodes));
-M(zeroBoundaryNodes,:) = 0;
-M(:,zeroBoundaryNodes) = 0; %Optional; results from homog. BC
-F(zeroBoundaryNodes) = 0;
+%Correct global matrices by adding zero type boundary conditions
+K(type1BoundaryNodes,:) = 0;
+K(:,type1BoundaryNodes) = 0; %Optional; results from homog. BC
+K(type1BoundaryNodes,type1BoundaryNodes) = eye(length(type1BoundaryNodes));
+M(type1BoundaryNodes,:) = 0;
+M(:,type1BoundaryNodes) = 0; %Optional; results from homog. BC
+Kk(type1BoundaryNodes,:) = 0;
+Kk(:,type1BoundaryNodes) = 0; %Optional; results from homog. BC
+F(type1BoundaryNodes) = 0;
+
+%add parabola boundary conditions from project problem
+parabolaBoundaryNodes = [type3BoundaryNodes; type4BoundaryNodes];
+if ~isempty(parabolaBoundaryNodes)
+    K(parabolaBoundaryNodes,:) = 0;
+    K(parabolaBoundaryNodes,parabolaBoundaryNodes) = eye(length(parabolaBoundaryNodes));
+    M(parabolaBoundaryNodes,:) = 0;
+    Kk(parabolaBoundaryNodes,:) = 0;
+    F(type3BoundaryNodes) = wBarL(N(type3BoundaryNodes,2));
+    F(type4BoundaryNodes) = wBarR(N(type4BoundaryNodes,2)); 
+end
 
 %Solve (also possible to omit boundary rows)
-switch problem
-    case 'benchmark'
-        a = (K+k0*M)\F;
-    case 'simple'
-        a = K\F;
-    case 'project'
-end
+a = (K+Kk)\F;
 
 %% Visualize
 

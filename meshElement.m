@@ -1,4 +1,4 @@
-function [E,N] = meshElement(macro,mesh_refinement_factor)
+function [E,N] = meshElement(macro,mesh_refinement_factor,toType)
 % innerMesh - meshes a reference element
 %   [E,N] = meshElement(macro,mesh_refinement_factor)
 %   Meshes an element with the node coordinates list given by macro into 
@@ -9,18 +9,18 @@ function [E,N] = meshElement(macro,mesh_refinement_factor)
 %Determine the type of element that requires meshing
     switch size(macro,1)
         case 9
-            type = 'biquadratic';
+            fromType = 'biquadratic';
         case 6
-            type = 'quadratic triangular';
+            fromType = 'quadratic triangular';
         otherwise
             error('element type not implemented');
     end
 
 %Retrieve basis functions
-phi = retrieveMapping(type);
+phi = retrieveMapping(fromType);
 
 %Retrieve the mesh at the desired fineness in the reference configuration
-[E,local_nodes] = innerMesh(mesh_refinement_factor,type);
+[E,local_nodes] = innerMesh(mesh_refinement_factor,fromType,toType);
 
 %Transform node coordinates from reference configuration into global 
 N = zeros(size(local_nodes));
