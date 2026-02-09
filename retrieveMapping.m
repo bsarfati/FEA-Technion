@@ -18,7 +18,7 @@ if strcmp(elementType,'biquadratic')
     2*xi*(xi-1)*(1-eta^2)
     4*(1-xi^2)*(1-eta^2)]';
 
-    Bhat = NaN; %Needs to be implemeneted
+    Bhat = NaN; %Needs to be implemented
 elseif strcmp(elementType,'quadratic triangular')
     phi = @(xi,eta) [
     xi*(2*xi-1)
@@ -28,7 +28,7 @@ elseif strcmp(elementType,'quadratic triangular')
     4*eta*(1-xi-eta)
     4*xi*(1-xi-eta)]';
 
-    Bhat = NaN; %Needs to be implemeneted
+    Bhat = NaN; %Needs to be implemented
 elseif strcmp(elementType,'linear triangular')
     phi = @(xi,eta) [
     xi

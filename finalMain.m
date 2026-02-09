@@ -6,14 +6,14 @@ clear; close all; clc
 
 %Choice of simulation
 problems = {'benchmark','simple','project'}; %Available options
-indProblem = 1;
+indProblem = 3;
 
 %Choice of element type
 elementTypes = {'linear triangular','quadratic triangular'}; %Available options
 indElementType = 1;
 
 %Mesh refinement factor (applied to each macro element)
-mesh_refinement_factor = 5;
+mesh_refinement_factor = 10;
 
 %Conversion from BC label to BC type (1=homog. Dirichlet, 2=homog. Neumann,
 %3=prescribed transverse deflection from geometry 1, as below)
@@ -37,16 +37,22 @@ switch problem
         k0 = 12.1; %Stiffness
         p0 = 5; %Transverse pressure
     case 'simple'
-        f = @(x,y) 2*pi^2*sin(pi*x)*sin(pi*y);
+        f = @(x,y) 2*pi^2*sin(pi*x).*sin(pi*y);
     case 'project'
         w = @(x,y) 0; %SOMETHING GOES HERE
 end
 
 %% Pre-processor
 
-%Create mesh
+%Create mesh, assign material properties, and assign loading conditions
 switch problem
     case 'benchmark' %(uses modified hw3 geometry)
+        %Assing forcing function
+        p = @(x,y) p0*ones(size(x));
+
+        %Assign material properties
+        k = @(x,y) k0;
+
         %Create node coordinates for a uniform 3x3 grid centered at 0
         [Vx,Vy] = ndgrid(-1:1,-1:1);
         Vraw = [Vx(:) Vy(:)];
@@ -74,7 +80,13 @@ switch problem
             [E,N] = mergeMesh(E,N,Emeshed{i},Nmeshed{i});
         end
 
-    case 'simple'        
+    case 'simple'   
+        %Assing forcing function
+        p = @(x,y) f(x,y);
+
+        %Assign material properties
+        k = @(x,y) 0;
+
         %Create node coordinates and macro element
         Vraw = [0 0; 0.5 0; 0.5 0.5; 0.25 0; 0.5 0.25; 0.25 0.25];
         Eraw = 1:6;
@@ -95,13 +107,15 @@ switch problem
     case 'benchmark' %(uses modified hw3 geometry)
         %Boundary BC is homogeneous
         numBoundaryLabels = 1;
-        boundaryLabels = ones(numBoundaryNodes,1); 
+        boundaryLabels = ones(numBoundaryNodes,1);
+        dirichletBoundaryNodes = boundaryNodes(boundaryLabels==1);
     case 'simple'   
         numBoundaryLabels = 2;
 
         %Locate corners of macro element
+        indCorners = zeros(3,1);
         for i = 1:3
-            indCorners(i) = find(sum(N(boundaryNodes,:)-Vraw(i,:),2) == 0);
+            indCorners(i) = find(vecnorm(N(boundaryNodes,:)-Vraw(i,:),2,2) == 0);
         end
 
         %Use order of occurrence of corners to determine boundary direction
@@ -123,11 +137,21 @@ switch problem
             boundaryLabels(indCorners(2)+1:end) = 1;
             boundaryLabels(1:indCorners(1)-1) = 1;
         end
+        % % if indCorners(2) > indCorners(1) %switch corners
+        % %     boundaryLabels(indCorners(1)+1:indCorners(2)-1) = 1;
+        % %     boundaryLabels(indCorners(2):end) = 2;
+        % %     boundaryLabels(1:indCorners(1)) = 2;
+        % % else
+        % %     boundaryLabels(indCorners(2)+1:indCorners(1)-1) = 2;
+        % %     boundaryLabels(indCorners(2):end) = 1;
+        % %     boundaryLabels(1:indCorners(1)) = 1;
+        % % end
+        dirichletBoundaryNodes = boundaryNodes(boundaryLabels==1);
     case 'project'
         % SOMETHING GOES HERE
 end
 
-%% Vis
+%% Visualize mesh
 
 figure; grid; set(gcf,'color','w'); hold on
 plotElement(E,N);
@@ -149,10 +173,7 @@ title('Boundary Conditions','FontSize',fontSize)
 legend(handles,labels{1:numBoundaryLabels},'Interpreter','latex','FontSize',fontSize,'location','nw')
 set(gca,'fontSize',fontSize)
 
-% cFigure; axisGeom; gpatch(E,N)
-% hold on; plotV(N(boundaryNodes,:),'r.','markersize',20)
-
-%% Pre-processor? Processor?
+%% Processor
 
 %Retrieve basis functions, gradients, jacobians according to element type
 [phi,Bhat] = retrieveMapping(elementTypes{indElementType});
@@ -170,18 +191,17 @@ for currentE = E'
     %Write integrand for local mass matrix
     integrandMe = @(xi_e,eta_e) phi(xi_e,eta_e)'*phi(xi_e,eta_e)*detJe(xi_e,eta_e);
 
-    %Calculate local mass matrix using degree 2 Gauss Quadrature
-    Me = gaussQuadrature(integrandMe,2);
+    %Calculate local mass matrix using degree 3 Gauss Quadrature
+    Me = gaussQuadrature(integrandMe,3);
 
     %Write integrand for local stiffness matrix
     integrandKe = @(xi_e,eta_e) B(xi_e,eta_e)'*B(xi_e,eta_e)*detJe(xi_e,eta_e);
 
     %Calculate local stiffness matrix using degree 0 Gauss Quadrature
-    % Ke = gaussQuadrature(integrandKe,0); %will this break when bhat non-const?
-    Ke = gaussQuadrature(integrandKe,1); %will this break when bhat non-const?
+    Ke = gaussQuadrature(integrandKe,0); %will this break when bhat non-const?
 
     %Write local forcing function
-    fe = p0*ones(length(currentE),1);
+    fe = p(N(currentE,1),N(currentE,2));
 
     %"Add" local matrices to global matrices
     M(currentE,currentE) = M(currentE,currentE)+Me;
@@ -190,23 +210,37 @@ for currentE = E'
 end
 
 %Correct global matrices by adding boundary conditions
-K(boundaryNodes,:) = 0;
-K(:,boundaryNodes) = 0; %Optional; results from homog. BC
-K(boundaryNodes,boundaryNodes) = eye(length(boundaryNodes));
-M(boundaryNodes,:) = 0;
-M(:,boundaryNodes) = 0; %Optional; results from homog. BC
-F(boundaryNodes) = 0;
+K(dirichletBoundaryNodes,:) = 0;
+K(:,dirichletBoundaryNodes) = 0; %Optional; results from homog. BC
+K(dirichletBoundaryNodes,dirichletBoundaryNodes) = eye(length(dirichletBoundaryNodes));
+M(dirichletBoundaryNodes,:) = 0;
+M(:,dirichletBoundaryNodes) = 0; %Optional; results from homog. BC
+F(dirichletBoundaryNodes) = 0;
 
 %Solve (also possible to omit boundary rows)
-a = (K+k0*M)\F;
+switch problem
+    case 'benchmark'
+        a = (K+k0*M)\F;
+    case 'simple'
+        a = K\F;
+    case 'project'
+end
 
 %% Visualize
 
-wTheo = @(r) p0/k0*(1-besseli(0,sqrt(k0)*r)/besseli(0,sqrt(k0)*R));
-aTheo = wTheo(vecnorm(N,2,2)); 
+switch problem
+    case 'benchmark'
+        wTheo = @(r) p0/k0*(1-besseli(0,sqrt(k0)*r)/besseli(0,sqrt(k0)*R));
+        aTheo = wTheo(vecnorm(N,2,2)); 
+    case 'simple'
+        wTheo = @(x,y) sin(pi*x).*sin(pi*y);
+        aTheo = wTheo(N(:,1),N(:,2)); 
+    case 'project'
+        %IUoaoweinrfvs
+end
 
-e1 = abs(aTheo-a)./aTheo;
-close all;
+e1 = abs((aTheo-a)./aTheo);
+e1(aTheo==0 & a==0) = 0;
 lims = max(e1);
 figure;
 plot(e1,'*')
@@ -230,37 +264,4 @@ function plotElement(elements, nodes)
             plot(pos_array(:,1),pos_array(:,2),'-k')
         end
         
-end
-
-function integral = gaussQuadrature(integrand,p)
-    switch p
-        case 0 %Not actual quadrature; just constant val*area
-            integral = integrand(NaN,NaN)/2;
-            return
-        case 1 %might be sufficiently low error order introduced 
-            u = [1/3 1/3];
-            w = 1;
-        case 2
-            u = [1/6 1/6; 2/3 1/6; 1/6 2/3];
-            w = [1/3 1/3 1/3];
-    end
-    % switch p
-    %     case 1
-    %         u = 0;
-    %         w = 2; 
-    %     case 2
-    %         u = [-sqrt(1/3); sqrt(1/3)];
-    %         w = [1 1];
-    %     case 3
-    %         u = [-sqrt(3/5); 0; sqrt(3/5)];
-    %         w = [5/9 8/9 5/9];    
-    %     case 4
-    %         u = [-sqrt(3/7-2/7*sqrt(5/6)) -sqrt(3/7+2/7*sqrt(5/6)) sqrt(3/7-2/7*sqrt(5/6)) sqrt(3/7+2/7*sqrt(5/6))];
-    %         w = [1/2+sqrt(30)/36 1/2-sqrt(30)/36 1/2+sqrt(30)/36 1/2-sqrt(30)/36];
-    % end
-    
-    integral = 0;
-    for k = 1:p
-        integral = integral+w(k)*integrand(u(k,1),u(k,2));
-    end
 end
