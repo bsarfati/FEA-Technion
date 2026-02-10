@@ -40,7 +40,7 @@ if strcmp(fromType,'biquadratic')
             end
         end
     end
-elseif strcmp(fromType,'quadratic triangular')
+elseif strcmp(fromType,'quadratic triangular') | strcmp(fromType,'linear triangular')
     %Check requested output element type
     if strcmp(toType,'linear triangular')
         %Create local node coordinates list (only have nodes in bottom left)
@@ -82,11 +82,8 @@ elseif strcmp(fromType,'quadratic triangular')
             end
         end
 
-        %Numerical tolerance for diagonal nodes
-        tol = 1e-12;
-
         %Find all nodes that belong to the lower left triangle
-        logicalKeepNodes = local_nodesRaw(:,2) <= 1-local_nodesRaw(:,1)+tol;
+        logicalKeepNodes = logical(reshape(flipud(tril(ones(2*k+1))),[],1));
 
         %Find new numberings of nodes in E
         [~,newElemNumbering] = ismember(Eraw,find(logicalKeepNodes));

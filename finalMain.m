@@ -10,7 +10,7 @@ indProblem = 3;
 
 %Choice of element type
 elementTypes = {'linear triangular','quadratic triangular'}; %Available options
-indElementType = 2;
+indElementType = 1;
 
 %Mesh refinement factor (applied to each macro element)
 mesh_refinement_factor = 6;
@@ -22,12 +22,12 @@ lineWidth = 2;
 markerSize = 15;
 textSpacing = 0.1;
 colors = orderedcolors("gem");
+defFieldRes = 10; %Deformation field resolution
 
 %Conversion from BC label to BC type (1=homog. Dirichlet, 2=homog. Neumann,
 %3,4=prescribed transverse deflection from geometry 1, as below); plot
 %labels
 labels = {'$w=0$','$\frac{\partial w}{\partial n}=0$','$w=c(-y^2+\frac{1}{4}a^2)$','$w=0.2c(-y^2+\frac{1}{4}a^2)$'};
-
 %% Problem-specific parameters
 
 problem = problems{indProblem};
@@ -36,7 +36,7 @@ switch problem
         %Benchmark problem parameters
         R = 10; %Radius
         k0 = 12.1; %Stiffness
-        p0 = 5; %Transverse pressure
+        p0 = 1; %Transverse pressure
     case 'simple'
         f = @(x,y) 2*pi^2*sin(pi*x).*sin(pi*y);
     case 'project'
@@ -72,7 +72,7 @@ switch problem
         Vraw = [Vx(:) Vy(:)];
         
         %Create all necessary node coords from the above node coords
-        Vraw = [3*Vraw; 5*Vraw([1 3 7 9],:); sqrt(R^2/2)*Vraw([1 2 3 4 6 7 8 9],:); R*Vraw([2 4 6 8],:)];
+        Vraw = [3/7*sqrt(R^2/2)*Vraw; 5/7*sqrt(R^2/2)*Vraw([1 3 7 9],:); sqrt(R^2/2)*Vraw([1 2 3 4 6 7 8 9],:); R*Vraw([2 4 6 8],:)];
         Eraw = {[1 9 7 5 8 4]... %Left triangle
          [9 1 3 5 2 6]... %Right triangle (correctly wound)
          [7 9 21 19 8 13 25 12 20]... %Top biquad
@@ -340,7 +340,7 @@ switch problem
         wTheo = @(x,y) sin(pi*x).*sin(pi*y);
         aTheo = wTheo(N(:,1),N(:,2)); 
     case 'project'
-        %IUoaoweinrfvs
+        %
 end
 
 if ~strcmp(problem,'project')
@@ -350,8 +350,58 @@ if ~strcmp(problem,'project')
     figure;
     plot(e1,'*')
     xline(boundaryNodes)
-    title('with local forcing vector')
+    title('% error across nodes')
 end
 
 %% Post-processing
 
+%Turn off warning that mergeMesh (TA code) triggers to see if negative
+%Jacobians exist
+warning('off', 'MATLAB:colon:operandsNotRealScalar')
+
+%Show that interpolation of nodal values of solution is largely sufficient
+%for creating a smooth result; but "cheats" around function requirement
+figure; set(gcf,'color','w'); trisurf(E(:,1:3), N(:,1), N(:,2), a, 'EdgeColor','none');
+view(2)
+axis equal
+colorbar
+title('Contour Plot of Solution Using 1st Nodal Value of Each Element','FontSize',fontSize)
+set(gca,'fontSize',fontSize)
+figure; set(gcf,'color','w'); trisurf(E(:,1:3), N(:,1), N(:,2), a, 'EdgeColor','none');
+view(2)
+axis equal
+shading interp
+colorbar
+title('Contour Plot of Solution Using Interpolated Nodal Values','FontSize',fontSize)
+set(gca,'fontSize',fontSize)
+
+%Mesh each individual element and sample solution at all resulting nodes in
+%order to plot a higher resolution deformation field using the actual
+%function solution w(x,y)
+[Eplot,Nplot,wPlot] = mapLocalSolution(N(E(1,:),:),defFieldRes,'linear triangular',a(E(1,:)));
+for i = 2:size(E,1)
+    [EplotElem,NplotElem,wPlotElem] = mapLocalSolution(N(E(i,:),:),defFieldRes,'linear triangular',a(E(i,:)));
+    [Eplot,Nplot,wPlot] = mergeMeshSoln(Eplot,Nplot,wPlot,EplotElem,NplotElem,wPlotElem);
+end
+figure; set(gcf,'color','w'); trisurf(Eplot,Nplot(:,1),Nplot(:,2),wPlot,'EdgeColor','none');
+view(2)
+axis equal
+colorbar
+title('Contour Plot of Solution Using w(x,y) sampled across elements','FontSize',fontSize)
+set(gca,'fontSize',fontSize)
+
+%Again but shading for ultimate plot
+[Eplot,Nplot,wPlot] = mapLocalSolution(N(E(1,:),:),defFieldRes,'linear triangular',a(E(1,:)));
+for i = 2:size(E,1)
+    [EplotElem,NplotElem,wPlotElem] = mapLocalSolution(N(E(i,:),:),defFieldRes,'linear triangular',a(E(i,:)));
+    [Eplot,Nplot,wPlot] = mergeMeshSoln(Eplot,Nplot,wPlot,EplotElem,NplotElem,wPlotElem);
+end
+figure; set(gcf,'color','w'); trisurf(Eplot,Nplot(:,1),Nplot(:,2),wPlot,'EdgeColor','none');
+view(2)
+axis equal
+colorbar
+shading interp
+title('Contour Plot of Solution Using w(x,y) sampled across elements','FontSize',fontSize)
+set(gca,'fontSize',fontSize)
+
+%Generate error norms
