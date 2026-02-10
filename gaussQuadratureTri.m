@@ -8,7 +8,10 @@ function integral = gaussQuadratureTri(integrand,p)
             w = 1;
         case 3
             u = [1/6 1/6; 2/3 1/6; 1/6 2/3];
-            w = [1/3 1/3 1/3];
+            w = [1 1 1]/3;
+        case 4
+            u = [1/3 1/3; 1/5 1/5; 3/5 1/5; 1/5 3/5];
+            w = [-27 25 25 25]/48;
     end    
     integral = 0;
     for k = 1:p

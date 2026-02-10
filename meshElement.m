@@ -17,10 +17,17 @@ function [E,N] = meshElement(macro,mesh_refinement_factor,toType)
     end
 
 %Retrieve basis functions
-phi = retrieveMapping(fromType);
+[phi,Bhat] = retrieveMapping(fromType);
 
 %Retrieve the mesh at the desired fineness in the reference configuration
 [E,local_nodes] = innerMesh(mesh_refinement_factor,fromType,toType);
+
+%Optional: check jacobians
+% detJ = @(xi,eta) det(Bhat(xi,eta)*macro);
+% for i = 1:length(local_nodes)
+%     detJs(i) = detJ(local_nodes(i,1),local_nodes(i,2));
+% end
+% warning(['smallest Jacobian of transform evaluated at new nodes: ' num2str(min(detJs))]);
 
 %Transform node coordinates from reference configuration into global 
 N = zeros(size(local_nodes));

@@ -44,7 +44,7 @@ elseif strcmp(fromType,'quadratic triangular')
     %Check requested output element type
     if strcmp(toType,'linear triangular')
         %Create local node coordinates list (only have nodes in bottom left)
-        [Vx,Vy] = ndgrid(linspace(-1,1,k+1),linspace(-1,1,k+1));
+        [Vx,Vy] = ndgrid(linspace(0,1,k+1),linspace(0,1,k+1));
         local_nodes = [Vx(:) Vy(:)];
         local_nodes = local_nodes(logical(reshape(flipud(tril(ones(k+1))),[],1)),:);
         
@@ -82,8 +82,11 @@ elseif strcmp(fromType,'quadratic triangular')
             end
         end
 
+        %Numerical tolerance for diagonal nodes
+        tol = 1e-12;
+
         %Find all nodes that belong to the lower left triangle
-        logicalKeepNodes = local_nodesRaw(:,2) <= -local_nodesRaw(:,1);
+        logicalKeepNodes = local_nodesRaw(:,2) <= 1-local_nodesRaw(:,1)+tol;
 
         %Find new numberings of nodes in E
         [~,newElemNumbering] = ismember(Eraw,find(logicalKeepNodes));

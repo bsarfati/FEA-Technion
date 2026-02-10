@@ -6,26 +6,27 @@ clear; close all; clc
 
 %Choice of simulation
 problems = {'benchmark','simple','project'}; %Available options
-indProblem = 2;
+indProblem = 3;
 
 %Choice of element type
 elementTypes = {'linear triangular','quadratic triangular'}; %Available options
 indElementType = 2;
 
 %Mesh refinement factor (applied to each macro element)
-mesh_refinement_factor = 2;
-
-%Conversion from BC label to BC type (1=homog. Dirichlet, 2=homog. Neumann,
-%3,4=prescribed transverse deflection from geometry 1, as below)
-labels = {'$w=0$','$\frac{\partial w}{\partial n}=0$','$w=c(-y^2+\frac{1}{4}a^2)$','$w=0.2c(-y^2+\frac{1}{4}a^2)$'};
+mesh_refinement_factor = 6;
 
 %Plot settings 
 fontSize = 30;
 axFontSize = 30;
 lineWidth = 2;
-markerSize = 24;
+markerSize = 15;
 textSpacing = 0.1;
 colors = orderedcolors("gem");
+
+%Conversion from BC label to BC type (1=homog. Dirichlet, 2=homog. Neumann,
+%3,4=prescribed transverse deflection from geometry 1, as below); plot
+%labels
+labels = {'$w=0$','$\frac{\partial w}{\partial n}=0$','$w=c(-y^2+\frac{1}{4}a^2)$','$w=0.2c(-y^2+\frac{1}{4}a^2)$'};
 
 %% Problem-specific parameters
 
@@ -39,12 +40,12 @@ switch problem
     case 'simple'
         f = @(x,y) 2*pi^2*sin(pi*x).*sin(pi*y);
     case 'project'
-        T = 1;
+        Tproj = 1.6;
         kMax = 5;
         a = 3;
         b = 12;
         p0 = 5;
-        c = 1;
+        c = 0.9;
         wBarL = @(y) c*(-y.^2+(a/2)^2);
         wBarR = @(y) 0.2*c*(-y.^2+(a/2)^2);
 end
@@ -57,11 +58,14 @@ elementType = elementTypes{indElementType};
 %Create mesh, assign material properties, and assign loading conditions
 switch problem
     case 'benchmark' %(uses modified hw3 geometry)
-        %Assing forcing function
+        %Assign forcing function
         p = @(x,y) p0*ones(size(x));
 
         %Assign material properties
         k = @(x,y) k0;
+
+        %Assign leading coefficient
+        T = 1;
 
         %Create node coordinates for a uniform 3x3 grid centered at 0
         [Vx,Vy] = ndgrid(-1:1,-1:1);
@@ -91,11 +95,14 @@ switch problem
         end
 
     case 'simple'   
-        %Assing forcing function
+        %Assign forcing function
         p = @(x,y) f(x,y);
 
         %Assign material properties
         k = @(x,y) 0;
+
+        %Assign leading coefficient
+        T = 1;
 
         %Create node coordinates and macro element
         Vraw = [0 0; 0.5 0; 0.5 0.5; 0.25 0; 0.5 0.25; 0.25 0.25];
@@ -109,6 +116,9 @@ switch problem
 
         %Assign material properties
         k = @(x,y) kMax*sin(pi*x/b).*cos(pi*y/a);
+
+        %Assign leading coefficient
+        T = Tproj;
 
         %Create node coordinates and macro element
         Vraw = [0 0; b 0; b a/2; 0 a/2; b/2 0; b a/4; b/2 a/2; 0 a/4; b/2 a/4];
@@ -215,7 +225,7 @@ end
 
 %% Visualize mesh
 
-figure; grid; set(gcf,'color','w'); hold on
+figure; set(gcf,'color','w'); hold on
 plotElement(E,N);
 labelNums = 1:numBoundaryLabels;
 handles = zeros(numBoundaryLabels,1);
@@ -223,10 +233,10 @@ for i = 1:numBoundaryNodes
     newLabel = find(boundaryLabels(i) == labelNums);
     if newLabel
         labelNums(newLabel) = 0;
-        handles(newLabel) = plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'.','markersize',markerSize*2,'Color',colors(boundaryLabels(i),:));
+        handles(newLabel) = plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:));
         continue;
     end
-    plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'.','markersize',markerSize*2,'Color',colors(boundaryLabels(i),:))
+    plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:))
 end
 
 xlabel('x','FontSize',fontSize,'Interpreter','latex')
@@ -236,6 +246,9 @@ legend(handles,labels{1:numBoundaryLabels},'Interpreter','latex','FontSize',font
 set(gca,'fontSize',fontSize)
 
 %% Processor
+
+%Write appropriate Gauss quadrature orders according to element type
+numGaussPoints = [3 0; 4 3]; %inexact for quad tris+M (4 pts but integrand order 4)
 
 %Retrieve basis functions, gradients, jacobians according to element type
 [phi,Bhat] = retrieveMapping(elementType);
@@ -251,17 +264,26 @@ for currentE = E'
     detJe = @(xi_e,eta_e) det(Je(xi_e,eta_e));
     B = @(xi_e,eta_e) Je(xi_e,eta_e)\Bhat(xi_e,eta_e);
 
+    %Optional: check jacobians
+    for i = 1:length(currentE)
+        detJs(i) = detJe(N(currentE(i),1),N(currentE(i),2));
+    end
+    if any(detJs < 0)
+        warning('negative Jacobians detected.');
+        plot(N(currentE,1),N(currentE,2),'r*','markersize',markerSize,'HandleVisibility', 'off');
+    end
+
     %Write integrand for local mass matrix
     integrandMe = @(xi_e,eta_e) phi(xi_e,eta_e)'*phi(xi_e,eta_e)*detJe(xi_e,eta_e);
 
-    %Calculate local mass matrix using degree 3 Gauss Quadrature
-    Me = gaussQuadratureTri(integrandMe,3);
+    %Calculate local mass matrix using appropriate degree Gauss Quadrature
+    Me = gaussQuadratureTri(integrandMe,numGaussPoints(indElementType,1));
 
     %Write integrand for local stiffness matrix
     integrandKe = @(xi_e,eta_e) B(xi_e,eta_e)'*B(xi_e,eta_e)*detJe(xi_e,eta_e);
 
-    %Calculate local stiffness matrix using degree 0 Gauss Quadrature
-    Ke = gaussQuadratureTri(integrandKe,0); %will this break when bhat non-const?
+    %Calculate local stiffness matrix using appropriate degree Gauss Quadrature
+    Ke = gaussQuadratureTri(integrandKe,numGaussPoints(indElementType,2)); %will this break when bhat non-const?
 
     %Write local forcing function
     pe = p(N(currentE,1),N(currentE,2));
@@ -273,8 +295,9 @@ for currentE = E'
     %Write integrand for local massy stiffnessy kappa matrix
     integrandKke = @(xi_e,eta_e) integrandMe(xi_e,eta_e)*k(x(xi_e,eta_e),y(xi_e,eta_e));
 
-    %Calculate local massy stiffnessy kappa matrix using degree 3 (?) Gauss Quadrature
-    Kke = gaussQuadratureTri(integrandKke,3);
+    %Calculate local massy stiffnessy kappa matrix using degree 4 Gauss 
+    % Quadrature (or higher if available)
+    Kke = gaussQuadratureTri(integrandKke,4);
 
     %"Add" local matrices to global matrices
     Kk(currentE,currentE) = Kk(currentE,currentE)+Kke;
@@ -305,9 +328,9 @@ if ~isempty(parabolaBoundaryNodes)
 end
 
 %Solve (also possible to omit boundary rows)
-a = (K+Kk)\F;
+a = (T*K+Kk)\F;
 
-%% Visualize
+%% Visualize (for myself)
 
 switch problem
     case 'benchmark'
@@ -320,12 +343,15 @@ switch problem
         %IUoaoweinrfvs
 end
 
-e1 = abs((aTheo-a)./aTheo);
-e1(aTheo==0 & a==0) = 0;
-lims = max(e1);
-figure;
-plot(e1,'*')
-xline(boundaryNodes)
-title('with local forcing vector')
+if ~strcmp(problem,'project')
+    e1 = abs((aTheo-a)./aTheo);
+    e1(aTheo==0 & a==0) = 0;
+    lims = max(e1);
+    figure;
+    plot(e1,'*')
+    xline(boundaryNodes)
+    title('with local forcing vector')
+end
 
-%% Functions
+%% Post-processing
+
