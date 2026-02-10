@@ -1,5 +1,5 @@
 %Ben Sarfati 885573816
-%FEA Final Project
+%FEA Fork on Main for Generating ERROR NORMS (other figs suppressed)
 clear; close all; clc
 
 %% General Parameters
@@ -10,10 +10,17 @@ indProblem = 3;
 
 %Choice of element type
 elementTypes = {'linear triangular','quadratic triangular'}; %Available options
-indElementType = 1;
+indElementType = 2;
 
-%Mesh refinement factor (applied to each macro element)
-mesh_refinement_factor = 6;
+%Mesh refinement factors! (applied to each macro element)
+switch indProblem
+    case 1
+        mesh_refinement_factors = 20:-2:4; %use linear elements
+    case 2
+        mesh_refinement_factors = [24 22 12 10 6 4 2];
+    case 3
+        mesh_refinement_factors = [30 22 12 10 6 4 2];
+end
 
 %Plot settings 
 fontSize = 30;
@@ -39,9 +46,15 @@ switch problem
         k0 = 12.1; %Stiffness
         p0 = 1; %Transverse pressure
         wTheo = @(r) p0/k0*(1-besseli(0,sqrt(k0)*r)/besseli(0,sqrt(k0)*R));
+        gradTheo = @(r,x,y)[
+            -p0/k0*sqrt(k0)*(x/r)*(besseli(1,sqrt(k0)*r)/besseli(0,sqrt(k0)*R))
+            -p0/k0*sqrt(k0)*(y/r)*(besseli(1,sqrt(k0)*r)/besseli(0,sqrt(k0)*R))];
     case 'simple'
         f = @(x,y) 2*pi^2*sin(pi*x).*sin(pi*y);
         wTheo = @(x,y) sin(pi*x).*sin(pi*y);
+        gradTheo = @(x,y) [
+            pi*cos(pi*x).*sin(pi*y)
+            pi*sin(pi*x).*cos(pi*y)];
     case 'project'
         Tproj = 1.6;
         kMax = 5;
@@ -54,6 +67,15 @@ switch problem
 end
 
 %% Pre-processor
+
+%To find the error norms it is required to run the FEA for multiple MRFs:
+useFirstForTheo = true; %For project problem theo comp
+L2s = [];
+H1s = [];
+hs = []; %Characteristic element size
+%%%
+for mesh_refinement_factor = mesh_refinement_factors
+%%%
 
 %Select element type 
 elementType = elementTypes{indElementType};
@@ -226,27 +248,29 @@ switch problem
         type4BoundaryNodes = boundaryNodes(boundaryLabels==4);
 end
 
+disp(['Total # of elements: ' num2str(size(E,1))])
+
 %% Visualize mesh
 
-figure; set(gcf,'color','w'); hold on
-plotElement(E,N);
-labelNums = 1:numBoundaryLabels;
-handles = zeros(numBoundaryLabels,1);
-for i = 1:numBoundaryNodes
-    newLabel = find(boundaryLabels(i) == labelNums);
-    if newLabel
-        labelNums(newLabel) = 0;
-        handles(newLabel) = plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:));
-        continue;
-    end
-    plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:))
-end
-
-xlabel('x','FontSize',fontSize,'Interpreter','latex')
-ylabel('y','FontSize',fontSize,'Interpreter','latex')
-title('Boundary Conditions','FontSize',fontSize)
-legend(handles,labels{1:numBoundaryLabels},'Interpreter','latex','FontSize',fontSize,'location','eastoutside')
-set(gca,'fontSize',fontSize)
+% figure; set(gcf,'color','w'); hold on
+% plotElement(E,N);
+% labelNums = 1:numBoundaryLabels;
+% handles = zeros(numBoundaryLabels,1);
+% for i = 1:numBoundaryNodes
+%     newLabel = find(boundaryLabels(i) == labelNums);
+%     if newLabel
+%         labelNums(newLabel) = 0;
+%         handles(newLabel) = plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:));
+%         continue;
+%     end
+%     plot(N(boundaryNodes(i),1),N(boundaryNodes(i),2),'ko','markersize',markerSize,'markerfaceColor',colors(boundaryLabels(i),:))
+% end
+% 
+% xlabel('x','FontSize',fontSize,'Interpreter','latex')
+% ylabel('y','FontSize',fontSize,'Interpreter','latex')
+% title('Boundary Conditions','FontSize',fontSize)
+% legend(handles,labels{1:numBoundaryLabels},'Interpreter','latex','FontSize',fontSize,'location','eastoutside')
+% set(gca,'fontSize',fontSize)
 
 %% Processor
 
@@ -255,7 +279,6 @@ numGaussPoints = [3 0; 4 3]; %inexact for quad tris+M (4 pts but integrand order
 
 %Retrieve basis functions, gradients, jacobians according to element type
 [phi,Bhat] = retrieveMapping(elementType);
-
 
 %Add contribution of each element to global matrices
 M = zeros(size(N,1));
@@ -334,144 +357,115 @@ end
 %Solve (also possible to omit boundary rows)
 a = (T*K+Kk)\F;
 
-%% Visualize (for myself)
-
-switch problem
-    case 'benchmark'
-        aTheo = wTheo(vecnorm(N,2,2)); 
-    case 'simple'
-        aTheo = wTheo(N(:,1),N(:,2)); 
-end
-
-if ~strcmp(problem,'project')
-    e1 = abs((aTheo-a)./aTheo);
-    e1(aTheo==0 & a==0) = 0;
-    lims = max(e1);
-    figure;
-    plot(e1,'*')
-    xline(boundaryNodes)
-    title('% error across nodes')
-end
-
 %% Post-processing
 
 %Turn off warning that mergeMesh (TA code) triggers to see if negative
 %Jacobians exist
 warning('off', 'MATLAB:colon:operandsNotRealScalar')
 
-%Reflect results across symmetries to generate complete solution
-switch problem
-    case 'benchmark'
-        Ecomplete = E; Ncomplete = N; aComplete = a;
-    case 'simple'
-        N2 = [N(:,2) N(:,1)];
-        [Equarter,Nquarter,aQuarter] = mergeMeshSoln(E,N,a,E,N2,a);
-        N3 = [Nquarter(:,1) 1-Nquarter(:,2)];
-        [Ehalf,Nhalf,aHalf] = mergeMeshSoln(Equarter,Nquarter,aQuarter,Equarter,N3,aQuarter);
-        N4 = [1-Nhalf(:,1) Nhalf(:,2)];
-        [Ecomplete,Ncomplete,aComplete] = mergeMeshSoln(Ehalf,Nhalf,aHalf,Ehalf,N4,aHalf);
-    case 'project'
-        N2 = [N(:,1) -N(:,2)];
-        [Ecomplete,Ncomplete,aComplete] = mergeMeshSoln(E,N,a,E,N2,a);
-end
-numElems = size(Ecomplete,1);
-numNodes = size(Ncomplete,1);
+%Use results from first (largest) mesh refinement level for norm
+%calculations for project problem
+if strcmp(problem,'project') & useFirstForTheo
+    useFirstForTheo = false; 
 
-%Show that interpolation of nodal values of solution is largely sufficient
-%for creating a smooth result; but "cheats" around function requirement
-figure; set(gcf,'color','w'); trisurf(Ecomplete(:,1:3), Ncomplete(:,1), Ncomplete(:,2), aComplete, 'EdgeColor','none');
-view(2)
-axis equal
-colorbar
-title('Contour Plot of Solution Using 1st Nodal Value of Each Element','FontSize',fontSize)
-set(gca,'fontSize',fontSize)
-figure; set(gcf,'color','w'); trisurf(Ecomplete(:,1:3), Ncomplete(:,1), Ncomplete(:,2), aComplete, 'EdgeColor','none');
-view(2)
-axis equal
-shading interp
-colorbar
-title('Contour Plot of Solution Using Interpolated Nodal Values','FontSize',fontSize)
-set(gca,'fontSize',fontSize)
+    %Generate w(x,y) as a list of values w1 corresponding to coordinates in
+    %N1; N1 is much more dense than the FE mesh itself. Generate gradient
+    %of w(x,y) in the identical manner
+    [E1,N1,w1,gradw1] = mapLocalSolution(N(E(1,:),:),defFieldRes,'linear triangular',a(E(1,:)));
+    w1gradw1 = [w1 gradw1'];
+    for i = 2:size(E,1)
+        [Eelem,Nelem,wElem,gradwElem] = mapLocalSolution(N(E(i,:),:),defFieldRes,'linear triangular',a(E(i,:)));
+        [E1,N1,w1gradw1] = mergeMeshSoln(E1,N1,w1gradw1,Eelem,Nelem,[wElem gradwElem']);
+    end
+    w1 = w1gradw1(:,1);
+    gradw1 = w1gradw1(:,2:3)';
 
-%Mesh each individual element and sample solution at all resulting nodes in
-%order to plot a higher resolution deformation field using the actual
-%function solution w(x,y)
-[Eplot,Nplot,wPlot] = mapLocalSolution(Ncomplete(Ecomplete(1,:),:),defFieldRes,'linear triangular',aComplete(Ecomplete(1,:)));
-for i = 2:numElems
-    [EplotElem,NplotElem,wPlotElem] = mapLocalSolution(Ncomplete(Ecomplete(i,:),:),defFieldRes,'linear triangular',aComplete(Ecomplete(i,:)));
-    [Eplot,Nplot,wPlot] = mergeMeshSoln(Eplot,Nplot,wPlot,EplotElem,NplotElem,wPlotElem);
-end
-figure; set(gcf,'color','w'); trisurf(Eplot,Nplot(:,1),Nplot(:,2),wPlot,'EdgeColor','none');
-view(2)
-axis equal
-colorbar
-title('Contour Plot of Solution Using w(x,y) sampled across elements','FontSize',fontSize)
-set(gca,'fontSize',fontSize)
-
-%Again but shading for ultimate plot
-figure; set(gcf,'color','w'); trisurf(Eplot,Nplot(:,1),Nplot(:,2),wPlot,'EdgeColor','none');
-view(2)
-axis equal
-colorbar
-shading interp
-title('Contour Plot of Solution Using w(x,y) sampled across elements + Shading Interp','FontSize',fontSize)
-set(gca,'fontSize',fontSize)
-
-%Find curvature -Lap(w)=(p-kw)/T by evaluating exact functions p,k at
-%points where true function w(x,y) was also evaluated
-numPlotPts = size(wPlot,1);
-pCurv = zeros(numPlotPts,1);
-kCurv = zeros(numPlotPts,1);
-for i = 1:numPlotPts
-    pCurv(i) = p(Nplot(i,1),Nplot(i,2));
-    kCurv(i) = k(Nplot(i,1),Nplot(i,2));
+    continue;
 end
 
-%Plot "ultimate" curvature plot
-figure; set(gcf,'color','w'); trisurf(Eplot,Nplot(:,1),Nplot(:,2),(pCurv-kCurv.*wPlot)/T,'EdgeColor','none');
-view(2)
-axis equal
-colorbar
-title('Contour Plot of Curvature Using true solution (No Shading Interp)','FontSize',fontSize)
-set(gca,'fontSize',fontSize)
-
-%% F-load F-reaction question
-
-%Retrieve complete boundary nodes
-boundaryNodesComplete = getOrderedBoundary(E);
-numBoundaryNodesComplete = length(boundaryNodesComplete);
-
-%Do quadrature to get F-load and 1st term of F-reaction
-Fload = 0;
-Freaction1 = 0;
-for currentE = E'
+%Generate error norms (using geometry before reflecting and 1pt quadrature)
+sqrtArgL2 = 0;
+sqrtArgH1 = 0;
+areaSum = 0;
+for i = 1:size(E,1)
     %Calculate Jacobian of current element, and functions of it
-    Je = @(xi_e,eta_e) Bhat(xi_e,eta_e)*N(currentE,:);
+    Je = @(xi_e,eta_e) Bhat(xi_e,eta_e)*N(E(i,:),:);
     detJe = @(xi_e,eta_e) det(Je(xi_e,eta_e));
+    B = @(xi_e,eta_e) Je(xi_e,eta_e)\Bhat(xi_e,eta_e);
 
     %Write mapping to global coords from this element's coords
-    x = @(xi_e,eta_e) phi(xi_e,eta_e)*N(currentE,1);
-    y = @(xi_e,eta_e) phi(xi_e,eta_e)*N(currentE,2);
+    x = @(xi_e,eta_e) phi(xi_e,eta_e)*N(E(i,:),1);
+    y = @(xi_e,eta_e) phi(xi_e,eta_e)*N(E(i,:),2);
 
     %Write numerical solution on this element
-    w = @(xi_e,eta_e) phi(xi_e,eta_e)*a(currentE);
+    w = @(xi_e,eta_e) phi(xi_e,eta_e)*a(E(i,:));
 
-    %Write integrand for p integral
-    integrandp = @(xi_e,eta_e) p(x(xi_e,eta_e),y(xi_e,eta_e))*detJe(xi_e,eta_e);
+    %Write numerical gradient on this element
+    gradw = @(xi_e,eta_e) B(xi_e,eta_e)*a(E(i,:));
 
-    %Calculate integral of p using degree 4 Gauss Quadrature
-    Floade = gaussQuadratureTri(integrandp,4);
+    %Choose comparison function
+    switch problem
+        case 'benchmark'
+            wTheoL2 = @(xi_e,eta_e) wTheo(sqrt(x(xi_e,eta_e)^2+y(xi_e,eta_e)^2));
+            gradTheoL2 = @(xi_e,eta_e) gradTheo(sqrt(x(xi_e,eta_e)^2+y(xi_e,eta_e)^2),x(xi_e,eta_e),y(xi_e,eta_e));
+        case 'simple'
+            wTheoL2 = @(xi_e,eta_e) wTheo(x(xi_e,eta_e),y(xi_e,eta_e));
+            gradTheoL2 = @(xi_e,eta_e) gradTheo(x(xi_e,eta_e),y(xi_e,eta_e));
+        case 'project'
+            %Since w(x,y) is defined on a grid of values N1, comparison
+            %function is simply w(x,y) evaluated at point on the grid
+            %closest to the requested point [x(xi_e,eta_e),y(xi_e,eta_e)]
+            minHelper = @(xi_e,eta_e) vecnorm(N1-[x(xi_e,eta_e) y(xi_e,eta_e)],2,2);
+            wTheoL2 = @(xi_e,eta_e) w1(find(minHelper(xi_e,eta_e)==min(minHelper(xi_e,eta_e)),1));
 
-    %Write integrand for kw integral
-    integrandkw = @(xi_e,eta_e) k(x(xi_e,eta_e),y(xi_e,eta_e))*w(x(xi_e,eta_e),y(xi_e,eta_e))*detJe(xi_e,eta_e);
+            %grad(w(x,y)) is evaluated identically 
+            gradTheoL2 = @(xi_e,eta_e) gradw1(:,find(minHelper(xi_e,eta_e)==min(minHelper(xi_e,eta_e)),1));    
+    end
 
-    %Calculate integral of p using degree 4 Gauss Quadrature
-    Freaction1e = gaussQuadratureTri(integrandkw,4);
+    %Write integrand for L2 norm calculation
+    integrandL2 = @(xi_e,eta_e) (wTheoL2(xi_e,eta_e)-w(xi_e,eta_e))^2*detJe(xi_e,eta_e);
+    % integrandL2 = @(xi_e,eta_e) (wTheoL2(xi_e,eta_e)^2-w(xi_e,eta_e)^2)*detJe(xi_e,eta_e);
 
-    %Add to totals
-    Fload = Fload+Floade;
-    Freaction1 = Freaction1+Freaction1e;
+    %Write integrand for H1 norm calculation
+    integrandH1 = @(xi_e,eta_e) sum((gradTheoL2(xi_e,eta_e)-gradw(xi_e,eta_e)).^2)*detJe(xi_e,eta_e)+integrandL2(xi_e,eta_e);
+
+    %Calculate integral using 4 point Gauss quadrature and add to sum
+    sqrtArgL2 = sqrtArgL2+gaussQuadratureTri(integrandL2,4);
+
+    %Calculate integral using 4 point Gauss quadrature and add to sum
+    sqrtArgH1 = sqrtArgH1+gaussQuadratureTri(integrandH1,4);
+
+    %Calculate area via quadrature of determinant
+    areaSum = areaSum+gaussQuadratureTri(detJe,4);
 end
 
-%2nd term of F-reaction 
-%???
+%Caculate L2
+L2s(end+1) = sqrt(sqrtArgL2);
+
+%Caculate H1
+H1s(end+1) = sqrt(sqrtArgH1);
+
+%Calculate characteristic element size; sqrt(average area of elements)
+hs(end+1) = sqrt(areaSum/size(E,1));
+
+%%%
+end
+%%%
+
+%Plot error norms
+[f1,params1] = fit(log10(hs'),log10(L2s'),'poly1');
+[f2,params2] = fit(log10(hs'),log10(H1s'),'poly1');
+xValsNorms = linspace(min(log10(hs)),max(log10(hs)));
+fit1 = f1.p1*xValsNorms+f1.p2;
+fit2 = f2.p1*xValsNorms+f2.p2;
+
+figure; 
+hold on; grid; set(gcf,'color','w')
+plot(log10(hs),log10(L2s),'*r','MarkerSize',markerSize);
+plot(xValsNorms,fit1,'r','LineWidth',2);
+plot(log10(hs),log10(H1s),'*b','MarkerSize',markerSize);
+plot(xValsNorms,fit2,'b','LineWidth',2);
+legend('$L_2$ Data',['$\alpha=' num2str(f1.p1) '$'],'$H^1$ Data',['$\alpha=' num2str(f2.p1) '$'],...
+    'Interpreter','latex','fontsize',fontSize,'location','nw')
+xlabel('$\log_{10}(h)$','FontSize',fontSize,'Interpreter','latex')
+ylabel('$\log_{10}(||e||)$','FontSize',fontSize,'Interpreter','latex')

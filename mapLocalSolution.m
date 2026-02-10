@@ -1,4 +1,4 @@
-function [E,N,wVals] = mapLocalSolution(macro,mesh_refinement_factor,toType,aMacro)
+function [E,N,wVals,gradwVals] = mapLocalSolution(macro,mesh_refinement_factor,toType,aMacro)
 % mapLocalSolution - Provides FE solution across an element
 %   [E,N] = mapLocalSolution(macro,mesh_refinement_factor,toType,a)
 %   IDENTICAL TO meshElement EXCEPT: this function also accepts a, the
@@ -32,7 +32,12 @@ function [E,N,wVals] = mapLocalSolution(macro,mesh_refinement_factor,toType,aMac
 %Transform node coordinates from reference configuration into global 
 N = zeros(size(local_nodes));
 wVals = zeros(size(local_nodes,1),1);
+gradwVals = zeros(2,size(local_nodes,1));
 for i = 1:size(local_nodes,1)
     N(i,:) = phi(local_nodes(i,1),local_nodes(i,2))*macro;
     wVals(i) = phi(local_nodes(i,1),local_nodes(i,2))*aMacro;
+
+    Je = Bhat(local_nodes(i,1),local_nodes(i,2))*macro;
+    B = Je\Bhat(local_nodes(i,1),local_nodes(i,2));
+    gradwVals(:,i) = B*aMacro;
 end
