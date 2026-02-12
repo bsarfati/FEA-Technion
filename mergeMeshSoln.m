@@ -5,6 +5,7 @@ function [Elements, Nodes, Solution] = mergeMeshSoln(E1,N1,a1,E2,N2,a2)
     % E2 - element connectivity table of mesh 2 (additional)
     % N2 - nodal coordinates table of mesh 2 (additional)      
     % a - solution on mesh 2 (additional)      
+    % Ben Sarfati 2/2026
 
     eps = 1e-5; % define tolerance distinguishing duplicated nodes (robust to rounding errors)
 

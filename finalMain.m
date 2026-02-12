@@ -13,7 +13,7 @@ elementTypes = {'linear triangular','quadratic triangular'}; %Available options
 indElementType = 1;
 
 %Mesh refinement factor (applied to each macro element)
-mesh_refinement_factor = 6;
+mesh_refinement_factor = 14;
 
 %Plot settings 
 fontSize = 30;
@@ -253,9 +253,8 @@ set(gca,'fontSize',fontSize)
 %Write appropriate Gauss quadrature orders according to element type
 numGaussPoints = [3 0; 4 3]; %inexact for quad tris+M (4 pts but integrand order 4)
 
-%Retrieve basis functions, gradients, jacobians according to element type
+%Retrieve basis functions, gradients according to element type
 [phi,Bhat] = retrieveMapping(elementType);
-
 
 %Add contribution of each element to global matrices
 M = zeros(size(N,1));
@@ -309,6 +308,11 @@ for currentE = E'
     K(currentE,currentE) = K(currentE,currentE)+Ke;
     F(currentE) = F(currentE)+Me*pe;
 end
+
+%Save original global matrices for force EQ calculations
+Kog = K;
+Kkog = Kk;
+Fog = F;
 
 %Correct global matrices by adding zero type boundary conditions
 K(type1BoundaryNodes,:) = 0;
@@ -437,10 +441,6 @@ set(gca,'fontSize',fontSize)
 
 %% F-load F-reaction question
 
-%Retrieve complete boundary nodes
-boundaryNodesComplete = getOrderedBoundary(E);
-numBoundaryNodesComplete = length(boundaryNodesComplete);
-
 %Do quadrature to get F-load and 1st term of F-reaction
 Fload = 0;
 Freaction1 = 0;
@@ -473,5 +473,7 @@ for currentE = E'
     Freaction1 = Freaction1+Freaction1e;
 end
 
-%2nd term of F-reaction 
-%???
+%2nd term of F-reaction (boundary integral)
+totalForce = Fog-(T*Kog+Kkog)*a;
+Freaction2 = sum(totalForce([type1BoundaryNodes;type3BoundaryNodes;type4BoundaryNodes]));
+residualLoad = Fload-Freaction1-Freaction2

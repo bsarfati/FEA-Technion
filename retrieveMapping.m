@@ -57,6 +57,4 @@ elseif strcmp(elementType,'linear triangular')
     1-xi-eta]';
 
     Bhat = @(xi,eta) [eye(2) -ones(2,1)];
-    % % Bhat = [eye(2) -ones(2,1)]; %Functional for now (FOR INTEGRATEGEOM); 
-    % % % may need to become a function handle in the future
 end

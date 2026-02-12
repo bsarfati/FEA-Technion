@@ -1,4 +1,5 @@
 function integral = gaussQuadratureTri(integrand,p)
+% Ben Sarfati 2/2026
     switch p
         case 0 %Not actual quadrature; just constant val*area
             integral = integrand(NaN,NaN)/2;

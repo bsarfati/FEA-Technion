@@ -31,13 +31,13 @@ function [E,N,wVals,gradwVals] = mapLocalSolution(macro,mesh_refinement_factor,t
 
 %Transform node coordinates from reference configuration into global 
 N = zeros(size(local_nodes));
-wVals = zeros(size(local_nodes,1),1);
+wVals = zeros(size(local_nodes,1),size(aMacro,2));
 gradwVals = zeros(2,size(local_nodes,1));
 for i = 1:size(local_nodes,1)
     N(i,:) = phi(local_nodes(i,1),local_nodes(i,2))*macro;
-    wVals(i) = phi(local_nodes(i,1),local_nodes(i,2))*aMacro;
+    wVals(i,:) = phi(local_nodes(i,1),local_nodes(i,2))*aMacro;
 
     Je = Bhat(local_nodes(i,1),local_nodes(i,2))*macro;
     B = Je\Bhat(local_nodes(i,1),local_nodes(i,2));
-    gradwVals(:,i) = B*aMacro;
+    gradwVals(:,i) = B*aMacro(:,1);
 end

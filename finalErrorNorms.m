@@ -469,3 +469,4 @@ legend('$L_2$ Data',['$\alpha=' num2str(f1.p1) '$'],'$H^1$ Data',['$\alpha=' num
     'Interpreter','latex','fontsize',fontSize,'location','nw')
 xlabel('$\log_{10}(h)$','FontSize',fontSize,'Interpreter','latex')
 ylabel('$\log_{10}(||e||)$','FontSize',fontSize,'Interpreter','latex')
+set(gca,'fontSize',fontSize)
