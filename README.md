@@ -16,7 +16,7 @@ This repository contains all of my codes written for the Finite Element Analysis
 
 * Many more helper scripts...
 
-### Helper scripts
+## Helper scripts
 
 Many independently functional helper scripts were written to complete the course objectives:
 
