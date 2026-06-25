@@ -1,11 +1,15 @@
 # FEA-Technion Repository
 
-This repository contains all of my codes written for the Finite Element Analysis graduate course at the Technion (minimal to no AI).
+This repository contains all of my codes written for the Finite Element Analysis graduate course at the Technion (minimal to no AI used).
 
 ## Primary Contents
 
-* `FEA_HW1.m`, `FEA_HW2.m`, `FEA_HW3.m`, and `FEA_HW5.m` are homeworks from the course.
+* `FEA_HW1.m`, `FEA_HW2.m` (actually HW3), `FEA_HW3.m` (actually HW4), and `FEA_HW5.m` are homeworks from the course.
 
+* `Assigments/` contains the homework guidelines.
+
+* `Submissions/` contains the homeworks' accompanying reports.
+ 
 * `Old HWs/` contains assignments from a similar undergraduate course which I completed during my BSc.
 
 * `finalMain.m`, `finalEigen.m`, and `finalErrorNorms.m` are the main scripts written for the final project, which included building a FE sovler.
